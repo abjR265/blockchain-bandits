@@ -1,0 +1,20 @@
+# Supabase local dev config.
+# Run `supabase init` once; this file is generated and committed.
+
+project_id = "blockchain-bandits"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[storage]
+enabled = false

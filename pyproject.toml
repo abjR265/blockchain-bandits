@@ -1,0 +1,35 @@
+# Root config for shared Python tooling. Actual dependencies live in
+# api/pyproject.toml, ml/pyproject.toml, data/pyproject.toml.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "node_modules", "ml/notebooks"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "SIM", # flake8-simplify
+  "TID", # flake8-tidy-imports
+  "RUF", # ruff-specific
+]
+ignore = [
+  "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+exclude = ["**/.venv", "**/node_modules", "ml/notebooks"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["api/tests", "ml/tests", "data/tests"]

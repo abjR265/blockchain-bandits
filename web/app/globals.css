@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: ui-sans-serif, system-ui;
+}
+
+body {
+  color: #0a0a0a;
+  background: #fafafa;
+}
+
+/* Utilities for risk level pill */
+.pill {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
