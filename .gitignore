@@ -57,3 +57,4 @@ Thumbs.db
 *-service-account*.json
 credentials.json
 .secrets/
+api/checkpoints/
