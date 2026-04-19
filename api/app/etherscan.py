@@ -26,7 +26,7 @@ def fetch_txlist_mainnet(
     address: str,
     api_key: str,
     *,
-    max_tx: int = 10_000,
+    max_tx: int = 2_000,
     chain_id: int = ETH_MAINNET_CHAIN_ID,
 ) -> pd.DataFrame:
     """Return a dataframe compatible with `wallet_features.engineer` (normal txs only)."""
@@ -54,7 +54,7 @@ def fetch_txlist_mainnet(
     url = f"{V2_API_BASE}?{params}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "blockchain-bandits-api/0.1"})
-        with urllib.request.urlopen(req, timeout=90) as resp:
+        with urllib.request.urlopen(req, timeout=25) as resp:
             payload = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         raise EtherscanError(f"Etherscan HTTP {e.code}") from e
