@@ -16,6 +16,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -117,11 +118,7 @@ def main() -> None:
 
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(cfg.output_dir / "xgb.json"))
-    np.savez(
-        cfg.output_dir / "calibrators.npz",
-        **{f"class_{k}_x": iso.X_thresholds_ for k, iso in enumerate(calibrators)},
-        **{f"class_{k}_y": iso.y_thresholds_ for k, iso in enumerate(calibrators)},
-    )
+    joblib.dump(calibrators, cfg.output_dir / "calibrators.joblib")
 
 
 if __name__ == "__main__":
