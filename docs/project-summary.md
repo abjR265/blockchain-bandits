@@ -6,6 +6,27 @@
 
 ---
 
+## 0. How to read this document
+
+This file serves **two roles** at once:
+
+1. **Course narrative** — data sources, modeling choices, Snorkel + BigQuery training story, and roadmap (what we set out to prove).
+2. **Repository truth** — what is actually wired in code *today*.
+
+**Inference vs. training (critical).** *Training* uses historical pulls from **BigQuery** plus weak labels from OFAC, CryptoScamDB, Tornado pools, MEV lists, etc. *Serving* in the FastAPI app builds **live, per-request features** from **Etherscan API v2** (mainnet `chainid`, e.g. `1`) so analyst lookups stay current without re-running warehouse jobs. The feature vector is aligned with `FEATURE_COLUMNS` / `api/app/wallet_features.py` so the same XGBoost schema can train offline and score online.
+
+**Scoring path in code.** If `MODEL_PATH` resolves to a loadable XGBoost booster (`xgb.json`), the API uses it with optional **isotonic calibrators** (`calibrators.joblib`). Otherwise it falls back to **`heuristic-v1+live-features`** on the same engineered row (still real chain-backed features when Etherscan is configured). A legacy **hash mock** exists only behind `ALLOW_MOCK_SCORER` (not recommended).
+
+**Explanations.** Production uses **XGBoost `pred_contribs`** (tree SHAP-style contributions from the booster), not a separate `shap` library call—the wallet UI shows **top-3** contributions with raw feature values.
+
+**Persistence & feedback.** **Supabase** is **optional**: when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, predictions can be persisted and `prediction_id` returned so `/feedback` can write to the `feedback` table. Without credentials, the UI still scores wallets but feedback may be disabled.
+
+**Frontend.** Next.js 14 + **Tailwind** + custom components (the repo does **not** depend on shadcn/ui).
+
+**CI.** GitHub Actions runs **web** (lint, typecheck, build) and **api** / **ml** (ruff + pytest)—see `.github/workflows/ci.yml`.
+
+---
+
 ## 1. Project Overview
 
 Blockchain-Bandits is an AI-powered blockchain transaction intelligence system that ingests live Ethereum transaction data, engineers behavioral features for individual wallets, and outputs **calibrated risk scores** with human-readable explanations. The system classifies wallets into one of five operational categories — `legitimate`, `phishing`, `mixer_usage`, `bot_activity`, and `sanctioned` — and exposes the results to analysts through a web dashboard.
@@ -18,22 +39,25 @@ Illicit on-chain activity (wash trading, mixer hops through Tornado Cash, phishi
 
 ### What "success" looks like for the class project
 
-A reviewer (professor/TA) opens the public dashboard, pastes an Ethereum address, and within a few seconds sees a risk score, confidence band, top-3 feature contributions explaining the score, and a thumbs-up/down affordance. Under the hood, the FastAPI service has loaded a real XGBoost model trained on real BigQuery transaction data with Snorkel-derived labels, persisted the prediction to Supabase, and recorded the analyst's feedback for the next training cycle.
+A reviewer (professor/TA) opens the public dashboard, pastes an Ethereum address, and within a few seconds sees a risk score, confidence band, top-3 **model attributions** (contributions + raw feature values), and—when Supabase is configured—a thumbs-up/down affordance tied to a `prediction_id`. Under the hood, the FastAPI service engineers **live** features (Etherscan), runs **XGBoost** when a checkpoint is present (trained offline on BigQuery + weak labels), optionally **persists** the row to Supabase, and **records feedback** when the DB is wired.
 
 ---
 
-## 2. Expected Deliverables
+## 2. Expected deliverables (design) vs. repository status
 
-The project satisfies two class assignments (data collection + evaluation + deployment, and UI/UX + post-deployment lifecycle). Concretely:
+The course asks for a full-lifecycle system. The table below separates **intent** from what you should verify before calling the project “done” for a grader.
 
-- **Deployed analyst dashboard** — Next.js 14 on Vercel, public URL, matches the Assignment 2 UI mocks (search bar, three stat cards, wallet table, wallet detail page with SHAP explanations).
-- **Deployed inference API** — FastAPI on Fly.io with `/health`, `/analyze`, `/feedback`, `/stats` endpoints documented via OpenAPI at `/docs`.
-- **Real trained model** — XGBoost multi-class classifier saved to `ml/checkpoints/xgb.json`, loaded directly by the FastAPI process. A `models` row in Postgres pins which version is `is_production=true`.
-- **Real data pipeline** — BigQuery extraction under a 5 GB safety ceiling, Snorkel-generated probabilistic labels from ~8 labeling functions, ~20 behavioral features per wallet, ~50k labeled wallets in the combined dataset.
-- **Real feedback loop** — thumbs up/down writes to the `feedback` table. That table is the only retraining ground truth.
-- **Experiment tracking** — every training run logged to Weights & Biases with hyperparameters, metrics, and model artifact.
-- **Documentation** — ADRs, architecture diagram, roadmap, setup guide, and this summary in `docs/`.
-- **CI** — GitHub Actions: `web` (lint/typecheck/build), `api` (ruff + pytest), `ml` (pytest). `make test` green across all packages.
+| Deliverable | What “done” means | Typical status |
+|-------------|-------------------|----------------|
+| **Deployed dashboard** | Next.js on Vercel (or similar), public URL | **You confirm** deploy + env (`NEXT_PUBLIC_API_URL`). |
+| **Deployed API** | FastAPI with `/health`, `/analyze`, `/feedback`, `/stats`, OpenAPI `/docs` | **Shipped in repo**; production URL + secrets **you confirm**. |
+| **Real XGBoost model** | Booster at `ml/checkpoints/xgb.json` (or `MODEL_PATH`), loaded in-process | **Shipped when checkpoint committed or baked into image**; else heuristic fallback is honest behavior. |
+| **`models` table production flag** | DDL + optional row with `is_production` | **Schema exists** (`data/supabase/migrations/001_initial.sql`); **promotion workflow** is manual unless automated. |
+| **Data pipeline** | BigQuery extract ≤ 5 GB/query, Snorkel LFs, Parquet artifacts | **Code + scripts** in `data/`; **run outputs** (Parquet sizes, row counts) **you report** in the writeup. |
+| **Feedback loop** | Thumbs → `feedback` table | **Shipped** when Supabase env vars set; **disabled** otherwise (UI copy reflects this). |
+| **W&B** | Training runs logged | **Supported in training code**; **verify** a run link exists for the class submission. |
+| **Documentation** | ADRs, architecture, setup, summary | **In `docs/`**; keep this file aligned with code. |
+| **CI** | Lint + tests green | **`.github/workflows/ci.yml`** runs web + api + ml jobs. |
 
 ---
 
@@ -200,9 +224,11 @@ Hand labels are scarce. Snorkel's `LabelModel` aggregates eight labeling functio
 
 Agreement statistics are logged to W&B; the LabelModel's per-class accuracy estimates are the upper bound on what XGBoost can learn.
 
-### 4.3 Explanations — SHAP TreeExplainer
+### 4.3 Explanations — XGBoost contributions (SHAP-compatible)
 
-For every prediction, the API returns the top-3 features with the largest positive SHAP contribution along with their raw value. This powers the "Why was this flagged?" panel on the wallet detail page and satisfies the rubric's interpretability requirement.
+For **XGBoost** predictions, the API extracts **per-feature contributions** via the booster’s **`pred_contribs`** output (exact tree SHAP values for the boosted trees model). The top-3 features by absolute contribution are returned with their raw values as `top_features`. The **heuristic** path synthesizes analogous “contribution” weights from feature magnitudes so the UI always has three rows to show.
+
+This satisfies the rubric’s interpretability requirement without requiring a separate `shap` dependency at inference time.
 
 ### 4.4 Stretch — Graph Neural Network
 
@@ -229,8 +255,8 @@ Full list: `ml/src/blockchain_bandits_ml/features.FEATURE_COLUMNS`.
 
 | Layer | Choice | Host | Cost |
 |---|---|---|---|
-| Frontend | Next.js 14 (App Router), TypeScript, Tailwind, shadcn/ui | Vercel Hobby | $0 |
-| API | FastAPI, Pydantic v2, async SQLAlchemy | Fly.io free tier | $0 |
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind, custom UI | Vercel Hobby | $0 |
+| API | FastAPI, Pydantic v2; Supabase via `supabase-py` when configured (not SQLAlchemy ORM) | Fly.io free tier | $0 |
 | ML inference | XGBoost booster loaded in-process | Same FastAPI process | $0 |
 | Database | Postgres + RLS policies | Supabase free tier | $0 |
 | Raw data | `crypto_ethereum` public dataset | BigQuery | ~$0 under 5 GB/query |
@@ -244,7 +270,7 @@ Full list: `ml/src/blockchain_bandits_ml/features.FEATURE_COLUMNS`.
 ### 5.1 Why these choices (short version)
 
 - **Next.js on Vercel** — zero-config SSR, free preview URLs per PR, Tailwind ecosystem.
-- **FastAPI on Fly.io** — Python-native (keeps XGBoost + SHAP in one runtime), async, auto-generated OpenAPI, free tier hard-caps cost.
+- **FastAPI on Fly.io** — Python-native (keeps XGBoost + contribution extraction in one runtime), async-capable, auto-generated OpenAPI, free tier hard-caps cost.
 - **XGBoost in-process rather than Modal** — the model loads from a 20–100 MB `.json` file in milliseconds; no separate GPU-backed inference service needed at class-project scale.
 - **Supabase Postgres (auth unused)** — managed Postgres + migrations + RLS for free. Auth is deliberately turned off because the reviewer is the only user.
 - **BigQuery over a local ETL** — the full Ethereum chain is ~2 TB; partitioned SQL is the only affordable path in.
@@ -258,15 +284,15 @@ All-AWS (egress fees), Modal + R2 (too many moving parts for class scope), Railw
 
 ```
 blockchain-bandits/
-├── web/            # Next.js analyst dashboard
-├── api/            # FastAPI service + scoring endpoints
-├── ml/             # Training code + Colab notebooks
-├── data/           # ETL scripts, label sources, DB migrations
-├── infra/          # fly.toml, vercel.json, GitHub Actions
-├── docs/           # ADRs, architecture diagrams, this summary
-├── Makefile        # Common commands
+├── web/                 # Next.js analyst dashboard
+├── api/                 # FastAPI + scoring (`api/fly.toml` for deploy)
+├── ml/                  # Training code + Colab notebooks
+├── data/                # ETL, label sources, `supabase/migrations`
+├── .github/workflows/   # CI (web build, api/ml pytest + ruff)
+├── docs/                # ADRs, architecture, this summary
+├── Makefile
 ├── pnpm-workspace.yaml
-└── pyproject.toml  # Shared Python tooling (ruff, pyright)
+└── pyproject.toml       # Root Python tooling (ruff, etc.)
 ```
 
 ---
@@ -279,27 +305,28 @@ blockchain-bandits/
             └────────┬────────┘
                      │ REST (TanStack Query)
             ┌────────▼────────┐
-            │ FastAPI/Fly.io  │  ← API + local XGBoost scoring
+            │ FastAPI/Fly.io  │  ← features + XGBoost / heuristic
             └────┬──────┬─────┘
                  │      │
-                 ▼      ▼
-        ┌──────────────┐  ┌──────────────┐
-        │ Supabase PG  │  │ Colab Pro    │
-        │ predictions, │  │ training     │
-        │ feedback,    │  │ notebooks    │
-        │ labels,      │  └──────┬───────┘
-        │ models       │         │
-        └──────────────┘         ▼
-                        ┌──────────────────┐
-                        │ BigQuery (ETH)   │
-                        │  + OFAC, CSDB,   │
-                        │  Etherscan, MEV  │
-                        └──────────────────┘
+       Etherscan  │      │  (optional)
+       API v2     │      ▼
+       (live tx   │   ┌──────────────┐     ┌──────────────┐
+        features)  │   │ Supabase PG  │     │ Colab / local │
+                 └──►│ predictions, │     │ training      │
+                     │ feedback,    │     │ (BigQuery →    │
+                     │ labels,      │     │  Parquet)      │
+                     │ models       │     └────────┬───────┘
+                     └──────────────┘              │
+                                                   ▼
+                        ┌──────────────────────────────────┐
+                        │ BigQuery (ETH) + weak label files  │
+                        │ (OFAC, CryptoScamDB, Tornado, MEV) │
+                        └──────────────────────────────────┘
 ```
 
 ### 6.1 Data flow summary
 
-- **Read path:** analyst pastes `0x…` → Next.js `POST /analyze` → FastAPI → features → in-process XGBoost → SHAP top-3 → response + persist to `predictions`.
+- **Read path (production):** analyst pastes `0x…` → Next.js `POST /analyze` → FastAPI → **Etherscan-backed feature row** → in-process **XGBoost** (or heuristic) → **top-3 contributions** → JSON response → **optional** persist to `predictions` if Supabase configured.
 - **Write path:** thumbs up/down → `POST /feedback` → row in `feedback` table (joined during retraining).
 - **Training path (weekly):** Colab notebook pulls fresh BigQuery txs → refreshes OFAC / CryptoScamDB / Etherscan / MEV label sources → runs Snorkel LabelModel → applies `feedback` corrections → retrains XGBoost → saves booster + calibrators → inserts `models` row → manually flip `is_production=true`.
 
@@ -309,7 +336,7 @@ The UI **never** reads from Postgres directly; only through FastAPI. FastAPI **o
 
 ### 6.3 Database schema (Supabase)
 
-- `wallets(address PK with 0x regex check, first_seen, tags, metadata)`
+- `wallets(address PK with 0x regex check, first_seen, last_seen_onchain, notes)`
 - `predictions(id uuid PK, wallet, label check constraint, risk_score [0,1], confidence [0,1], top_features jsonb, model_version, scored_at)`
 - `feedback(id uuid PK, prediction_id FK, verdict check(correct/incorrect), correct_label, analyst_id, created_at)`
 - `labels(address, label, source PK composite)` — OFAC / CryptoScamDB / Tornado / Etherscan / MEV imports
@@ -387,7 +414,7 @@ These are not "missing features" — they are deliberate cuts documented in the 
 - **Training:** Temporal CV, focal loss, isotonic calibration, W&B-tracked experiments.
 - **Evaluation:** Average Precision and Expected Calibration Error as primary metrics on a hand-curated held-out set, not the Snorkel-labeled data. Full confusion matrix and per-class PR curves reported.
 - **Deployment:** Public dashboard URL, public API URL with OpenAPI docs, reproducible `make dev` bootstrap.
-- **Interpretability:** SHAP top-3 feature contributions rendered on every prediction; optional Claude Haiku paragraph.
+- **Interpretability:** Top-3 **XGBoost contributions** (or heuristic proxy) rendered on every prediction; optional Claude Haiku paragraph (stretch).
 - **Feedback loop:** thumbs up/down persists to Postgres; retraining joins this table.
 - **Ethics:** explicit "risk signals, not enforcement decisions" disclaimer on every page; analyst feedback is the correction mechanism; model does not auto-freeze, auto-block, or auto-report any wallet. All data sources are public-record or permissively licensed.
 
