@@ -1,6 +1,6 @@
 # Roadmap
 
-Target: fully working Blockchain-Bandits in 8 weeks, cost-ceiling <$40 total.
+Target: fully working Blockchain-Bandits in 8 weeks, class-friendly and simple.
 
 ## Week 1 — Skeleton deployed
 
@@ -28,12 +28,12 @@ Target: fully working Blockchain-Bandits in 8 weeks, cost-ceiling <$40 total.
 - [ ] Train on Colab Pro with W&B logging
 - [ ] Temporal CV, focal loss, isotonic calibration
 - [ ] Target: AP ≥ 0.8 on test slice
-- [ ] Booster + calibrators pushed to R2
+- [ ] Booster + calibrators saved locally and versioned
 
 ## Week 5 — Inference + feedback loop live
 
-- [ ] Modal `score_wallet` deployed, loads real model from R2
-- [ ] FastAPI proxies real predictions, persists to Postgres
+- [ ] FastAPI loads real XGBoost model directly
+- [ ] FastAPI serves predictions and persists to Postgres
 - [ ] UI shows real scores + SHAP top-3 explanations
 - [ ] Feedback thumbs up/down writes to `feedback` table
 
@@ -58,6 +58,6 @@ Target: fully working Blockchain-Bandits in 8 weeks, cost-ceiling <$40 total.
 
 ## Scope-cut priority (if weeks slip)
 
-Cut in this order, earliest first: ego-graph viz → GNN → LLM explanations →
-drift monitoring. The XGBoost baseline + feedback loop + deployed dashboard
-is the non-negotiable core.
+Cut in this order, earliest first: ego-graph viz -> GNN -> LLM explanations ->
+drift monitoring. The XGBoost baseline + feedback loop + deployed dashboard is
+the non-negotiable core.

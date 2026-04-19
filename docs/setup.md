@@ -1,7 +1,7 @@
 # Day-one setup
 
-Every account you need to create, in order. Total time: ~45 minutes if
-you click fast. Cost: $0.
+Every account you need to create, in order. Total time: ~30-45 minutes.
+Cost target: $0 for class use.
 
 ## Required
 
@@ -10,12 +10,9 @@ you click fast. Cost: $0.
 | 1 | [GitHub](https://github.com) | Repo + Actions | Free |
 | 2 | [Vercel](https://vercel.com) | Frontend hosting | Hobby |
 | 3 | [Fly.io](https://fly.io) | API hosting | Free tier (no card for free tier) |
-| 4 | [Supabase](https://supabase.com) | Postgres + auth | Free |
-| 5 | [Modal](https://modal.com) | Serverless GPU | Free tier ($30/mo credit) |
-| 6 | [Cloudflare](https://dash.cloudflare.com) | R2 blob storage, DNS | Free |
-| 7 | [Google Cloud](https://console.cloud.google.com) | BigQuery | $300 trial credit |
-| 8 | [Weights & Biases](https://wandb.ai) | Experiment tracking | Free personal |
-| 9 | [Sentry](https://sentry.io) | Error tracking | Free |
+| 4 | [Supabase](https://supabase.com) | Postgres (predictions + feedback) | Free |
+| 5 | [Google Cloud](https://console.cloud.google.com) | BigQuery | $300 trial credit |
+| 6 | [Weights & Biases](https://wandb.ai) | Experiment tracking | Free personal |
 
 ## Claim these too (.edu benefits)
 
@@ -31,21 +28,23 @@ you click fast. Cost: $0.
 After signing up, copy `.env.example` → `.env` and fill in:
 
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — from Supabase Project Settings → API
-- `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` — `modal token new`
-- `R2_*` — from Cloudflare R2 → Manage R2 API Tokens
 - `GCP_PROJECT_ID` + service account JSON at `.secrets/gcp-service-account.json`
 - `WANDB_API_KEY` — from wandb.ai/authorize
-- `SENTRY_DSN` — from Sentry project settings
 - `ETHERSCAN_API_KEY` — etherscan.io/myapikey
 - `ANTHROPIC_API_KEY` — console.anthropic.com (only if doing LLM explanations)
 
 ## Billing guardrails (do this once)
 
 1. **GCP:** Billing → Budgets & alerts → $5 alert at 50/90/100%
-2. **Modal:** Usage dashboard — keep an eye on credit burn
-3. **Vercel:** Hobby tier is free; no budget to set
-4. **Fly.io:** free tier is hard-capped; no card billed unless you upgrade
-5. **Colab:** compute units dashboard — pin T4/V100 when experimenting to save A100 for real training
+2. **Vercel:** Hobby tier is free; no budget to set
+3. **Fly.io:** free tier is hard-capped; no card billed unless you upgrade
+4. **Colab:** compute units dashboard — pin T4/V100 when experimenting to save A100 for real training
+
+## Optional later (only if needed)
+
+- **Modal** for serverless GPU inference if local API inference becomes too slow
+- **Cloudflare R2** for large Parquet/checkpoint storage beyond local + Drive
+- **Sentry** if you want production-style error tracking in demos
 
 ## Verify the skeleton works
 

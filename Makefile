@@ -11,7 +11,6 @@ help:
 	@echo ""
 	@echo "  make deploy-web      Deploy frontend to Vercel"
 	@echo "  make deploy-api      Deploy FastAPI to Fly.io"
-	@echo "  make deploy-modal    Deploy ML inference to Modal"
 	@echo ""
 	@echo "  make db-migrate      Apply Supabase migrations"
 	@echo "  make clean           Nuke build artifacts, caches, venvs"
@@ -74,9 +73,6 @@ deploy-web:
 
 deploy-api:
 	cd api && fly deploy
-
-deploy-modal:
-	cd ml && uv run modal deploy modal_app.py
 
 # ---- DB ----
 
