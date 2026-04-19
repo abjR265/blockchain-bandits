@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from google.cloud import bigquery
 
@@ -48,9 +48,13 @@ def estimate_bytes(client: bigquery.Client, query: str, params: list) -> int:
 
 def extract(job: ExtractJob) -> None:
     client = bigquery.Client(project=job.project)
+    start_dt = datetime.combine(job.start, datetime.min.time(), tzinfo=timezone.utc)
+    end_dt = datetime.combine(job.end, datetime.min.time(), tzinfo=timezone.utc)
+    if end_dt <= start_dt:
+        end_dt = start_dt + timedelta(days=1)
     params = [
-        bigquery.ScalarQueryParameter("start_ts", "STRING", job.start.isoformat()),
-        bigquery.ScalarQueryParameter("end_ts", "STRING", job.end.isoformat()),
+        bigquery.ScalarQueryParameter("start_ts", "TIMESTAMP", start_dt),
+        bigquery.ScalarQueryParameter("end_ts", "TIMESTAMP", end_dt),
     ]
 
     est_bytes = estimate_bytes(client, TRANSFER_QUERY, params)
