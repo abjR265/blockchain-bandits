@@ -2,16 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-sans: ui-sans-serif, system-ui;
-}
+/* Fonts: --font-sans / --font-mono are set by next/font on <html> (Inter + JetBrains Mono). */
 
 body {
-  color: #0a0a0a;
-  background: #fafafa;
+  color: #e4e4e7;
+  background: #0a0e12;
+  font-feature-settings: "liga" 1, "kern" 1;
 }
 
-/* Utilities for risk level pill */
+/* Teal accent glow on headings / key UI (matches neon cyber reference) */
+@layer utilities {
+  .text-glow-cyan {
+    text-shadow: 0 0 24px rgba(45, 212, 191, 0.35), 0 0 48px rgba(45, 212, 191, 0.12);
+  }
+}
+
+/* Risk pills (light surfaces only — dark UI uses BBClassBadge) */
 .pill {
   @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-bb-ticker {
+    animation: none !important;
+  }
 }

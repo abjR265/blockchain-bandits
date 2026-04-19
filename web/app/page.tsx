@@ -1,48 +1,63 @@
-import { SearchBar } from "@/components/search-bar";
-import { StatCard } from "@/components/stat-card";
-import { WalletTable } from "@/components/wallet-table";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { BBHeader } from "@/components/bb-header";
+import { BBHero } from "@/components/bb-hero";
+import { BBLedgerNetwork } from "@/components/bb-ledger-network";
+import { BBMLAnalytics } from "@/components/bb-ml-analytics";
+import { BBPipeline } from "@/components/bb-pipeline";
+import { BBSiteShell } from "@/components/bb-site-shell";
+import { BBStatPills } from "@/components/bb-stat-pills";
+import { BBTicker } from "@/components/bb-ticker";
+import { BBTriageTable } from "@/components/bb-triage-table";
+import { api } from "@/lib/api";
 import { mockStats, mockWallets } from "@/lib/mock";
 
+const MODEL_UI = "V3.1.2";
+
 export default function DashboardPage() {
-  const stats = mockStats;
-  const wallets = mockWallets;
+  const statsQ = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => api.stats(),
+    retry: 1,
+  });
+
+  const recentQ = useQuery({
+    queryKey: ["recent-wallets"],
+    queryFn: () => api.recentWallets(10),
+    retry: 1,
+  });
+
+  const stats = statsQ.data ?? mockStats;
+  const wallets = recentQ.data ?? mockWallets;
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-6 py-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-neutral-900">Chain Intel</h1>
-              <span className="text-sm text-neutral-500">Dashboard</span>
-            </div>
-          </div>
-          <div className="text-sm text-neutral-500">Ethereum · Base · Polygon</div>
-        </header>
-
-        {/* Search */}
-        <section>
-          <SearchBar />
-        </section>
-
-        {/* Stats */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Wallets scanned" value={`${(stats.wallets_scanned / 1_000_000).toFixed(1)}M`} />
-          <StatCard label="Flagged today" value={stats.flagged_today} />
-          <StatCard label="Avg. risk score" value={stats.avg_risk_score.toFixed(2)} />
-        </section>
-
-        {/* Wallet table */}
-        <section>
-          <WalletTable wallets={wallets} />
-        </section>
-
-        {/* Footer disclaimer */}
-        <footer className="pt-4 text-xs text-neutral-500">
+    <BBSiteShell>
+      <BBHeader modelVersion={MODEL_UI} />
+      <main>
+        <BBHero stats={stats} modelVersion={MODEL_UI} />
+        <BBTicker />
+        {(statsQ.isError || recentQ.isError) && (
+          <p className="mx-auto max-w-2xl px-4 text-center text-xs text-amber-400/90">
+            API unreachable — showing mock queue. Run <span className="font-mono">make dev</span> or set
+            NEXT_PUBLIC_API_URL.
+          </p>
+        )}
+        <div className="mx-auto max-w-6xl px-4 py-10">
+          <BBStatPills stats={stats} />
+        </div>
+        <div id="queue" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-10">
+          <BBTriageTable wallets={wallets} />
+        </div>
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 pb-8 lg:grid-cols-2">
+          <BBLedgerNetwork />
+          <BBMLAnalytics wallets={wallets} />
+        </div>
+        <BBPipeline />
+        <footer className="border-t border-white/5 px-4 py-8 text-center text-xs text-zinc-600">
           Results are risk signals for analyst review — not enforcement decisions.
         </footer>
-      </div>
-    </div>
+      </main>
+    </BBSiteShell>
   );
 }

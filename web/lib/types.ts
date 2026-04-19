@@ -18,6 +18,7 @@ export interface WalletScore {
   top_features: FeatureContribution[];
   scored_at: string;
   model_version: string;
+  prediction_id?: string | null;
 }
 
 export interface FeatureContribution {
@@ -38,6 +39,7 @@ export interface AnalysisJob {
   address: string;
   submitted_at: string;
   result?: WalletScore;
+  error?: string | null;
 }
 
 export interface FeedbackPayload {
