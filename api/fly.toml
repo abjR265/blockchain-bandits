@@ -8,6 +8,7 @@ dockerfile = "Dockerfile"
 API_PORT = "8000"
 API_CORS_ORIGINS = "https://blockchain-bandits.vercel.app,http://localhost:3000"
 ENVIRONMENT = "production"
+MODEL_PATH = "checkpoints/xgb.json"
 
 [http_service]
 internal_port = 8000

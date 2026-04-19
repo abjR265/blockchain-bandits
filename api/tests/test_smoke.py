@@ -39,7 +39,18 @@ def test_analyze_rejects_bad_address():
 def test_feedback_accepts_ok():
     r = client.post(
         "/feedback",
-        json={"prediction_id": "abc", "verdict": "correct"},
+        json={
+            "prediction_id": "550e8400-e29b-41d4-a716-446655440000",
+            "verdict": "correct",
+        },
     )
     assert r.status_code == 200
     assert r.json()["ok"] is True
+
+
+def test_feedback_rejects_bad_uuid():
+    r = client.post(
+        "/feedback",
+        json={"prediction_id": "not-a-uuid", "verdict": "correct"},
+    )
+    assert r.status_code == 422

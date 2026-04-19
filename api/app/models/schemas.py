@@ -35,6 +35,7 @@ class WalletScore(BaseModel):
     top_features: list[FeatureContribution]
     scored_at: datetime
     model_version: str
+    prediction_id: str | None = None
 
 
 class DashboardStats(BaseModel):
@@ -53,6 +54,7 @@ class AnalysisJob(BaseModel):
     address: str
     submitted_at: datetime
     result: WalletScore | None = None
+    error: str | None = None
 
 
 class FeedbackPayload(BaseModel):

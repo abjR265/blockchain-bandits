@@ -23,12 +23,11 @@ OpenAPI docs: http://localhost:8000/docs
 | GET | `/analyze/{job_id}` | Poll job status |
 | POST | `/feedback` | Analyst correct/incorrect label |
 
-## Mock → real, by phase
+## Live scoring (default)
 
-- **Phase 1 (now):** deterministic hash-based mock scorer in `services/scorer.py`
-- **Phase 3:** replace `scorer.score_wallet` body with a `modal.Function.remote()` call
-- **Phase 5:** `jobs.run_job` becomes async — use `modal.Function.spawn()` plus a polling endpoint
-- **Phase 5:** `feedback.submit` writes to Supabase `feedback` table instead of printing
+1. Set **`ETHERSCAN_API_KEY`** and optional **`ETHERSCAN_CHAIN_ID=1`** (Ethereum mainnet; Etherscan **API v2** — see root `.env.example`).
+2. Optionally place **`xgb.json`** (+ `calibrators.joblib` alongside) at **`MODEL_PATH`** for trained XGBoost; if missing or unloadable, the API uses **`heuristic-v1+live-features`** (rules on real engineered features), not hash mocks.
+3. **`ALLOW_SYNTHETIC_FEATURES=true`** — only for offline demos (fake txs). **`ALLOW_MOCK_SCORER=true`** — legacy hash mock (not recommended).
 
 ## Tests
 
